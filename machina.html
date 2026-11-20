@@ -340,7 +340,8 @@ addEventListener('pointermove', e => {
 })
 addEventListener('pointerdown', e => { tick(); input(performance.now()) })
 addEventListener('keydown', e => { if (e.metaKey || e.ctrlKey || e.key === 'Tab') return; tick(); input(performance.now()) })
-document.addEventListener('pointerleave', () => { S.present = false })
+// only a mouse can leave the window; on touch, pointerleave fires at every lift and would put it straight back to sleep
+document.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') S.present = false })
 addEventListener('blur', () => { S.present = false })
 document.addEventListener('visibilitychange', () => { if (document.hidden) S.present = false })
 
