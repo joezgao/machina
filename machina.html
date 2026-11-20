@@ -33,6 +33,7 @@ canvas{position:fixed;inset:0;width:100%;height:100dvh;display:block;touch-actio
 header{position:fixed;top:28px;left:max(32px,env(safe-area-inset-left));z-index:2;pointer-events:none;max-width:min(440px,calc(100% - 64px))}
 h1{font-weight:400;font-size:30px;letter-spacing:-.01em;margin:0 0 12px;line-height:1.1}
 .caption{margin:0;font-size:13px;line-height:1.62;color:var(--dim);text-wrap:pretty}
+.made{margin:12px 0 0;font-size:12px;line-height:1.5;color:var(--dim);text-wrap:pretty}
 .status{position:fixed;left:max(32px,env(safe-area-inset-left));bottom:max(28px,env(safe-area-inset-bottom));z-index:2;margin:0;font-size:13px;letter-spacing:.02em;color:var(--dim);transition:opacity .4s var(--ease-out)}
 footer{position:fixed;right:max(32px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2;font-size:13px;letter-spacing:.02em}
 footer a{display:inline-block;margin-left:24px;padding:12px 0;line-height:20px;color:var(--dim);text-decoration:underline;text-underline-offset:3px;transition:color .2s ease}
@@ -49,6 +50,7 @@ footer a:focus-visible{outline:1px solid var(--fg);outline-offset:3px}
 <header>
   <h1>Machina</h1>
   <p class="caption">A tower in the fog with one eye. <span class="fine">Move and it wakes.</span><span class="touch">Touch and it wakes.</span> Hold still and it reaches for you. <span class="fine">Type</span><span class="touch">Tap</span> and it ticks, one tooth at a time.</p>
+  <p class="made">How it was made: idea, direction and every taste call by Joe; code written by Claude Code under his review.</p>
 </header>
 <p class="status" id="status" aria-live="polite">asleep</p>
 <footer><a href="https://github.com/joezgao/machina">Source</a><a href="https://joezgao.github.io/">Joe Gao</a></footer>
