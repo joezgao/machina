@@ -217,7 +217,7 @@ GEARS.forEach((d) => {
   const g = new THREE.Group()
   g.add(mesh)
   g.position.set(x, y, d.z || 0)
-  g.userData = { r, x, y, teeth: d.teeth, dir, mesh, step: (Math.PI * 2) / d.teeth, angle, target: angle, drift: 0.05 * dir * (24 / d.teeth) * (d.far ? 0.4 : 1) }
+  g.userData = { r, x, y, teeth: d.teeth, far: !!d.far, dir, mesh, step: (Math.PI * 2) / d.teeth, angle, target: angle, drift: 0.05 * dir * (24 / d.teeth) * (d.far ? 0.4 : 1) }
   mesh.rotation.z = angle
   cloud.add(g)
   rings.push(g)
@@ -308,7 +308,10 @@ function resize() {
   const pr = renderer.getPixelRatio()
   rt.setSize(Math.round(w * pr), Math.round(h * pr))
   post.uniforms.res.value.set(w * pr, h * pr)
-  post.uniforms.cell.value = Math.max(2, Math.round(2 * pr))
+  // portrait phones: a finer cell and solid-ink gears, so the teeth read as shapes against the stippled fog, not more fog
+  const narrow = w / h < 0.8
+  post.uniforms.cell.value = Math.max(2, Math.round((narrow ? 1.34 : 2) * pr))
+  rings.forEach((g) => { if (!g.userData.far) g.userData.mesh.material.color.set(narrow ? 0xffffff : 0xbdbdbd) })
   // keep the dither off the words: the header box plus a feather, and a band along the bottom (gl y runs upward)
   const hb = document.querySelector('header').getBoundingClientRect()
   post.uniforms.quiet.value.set((hb.left - 16) * pr, (h - hb.bottom - 16) * pr, (hb.right + 16) * pr, (h - hb.top + 16) * pr)
