@@ -148,7 +148,7 @@ const red = new THREE.MeshBasicMaterial({ color: 0xff0000, fog: false })
 const iris = new THREE.Mesh(new THREE.CircleGeometry(0.34, 48), red)
 const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.11, 32), new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }))
 pupil.position.z = 0.002
-const lid = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.025), new THREE.MeshBasicMaterial({ color: 0x400000, fog: false }))
+const lid = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.05), new THREE.MeshBasicMaterial({ color: 0xb00000, fog: false }))
 const glow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 48), new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }))
 glow.position.z = -0.001
 eye.add(glow, iris, pupil, lid)
@@ -160,6 +160,7 @@ let seamLit = 0
 
 // the mechanical cloud: a train of filled gears that really mesh, circuit traces hub to hub, and a haze of points
 const cloud = new THREE.Group()
+let cloudPlaced = false
 let fit = 1 // set in resize(): < 1 when the screen is too narrow for the whole train
 scene.add(cloud)
 const MOD = 0.22 // gear module: pitch radius = MOD * teeth / 2
@@ -321,7 +322,8 @@ function resize() {
   // on a narrow screen, shrink the gear train until its widest tooth clears both edges
   const halfW = Math.tan((camera.fov * Math.PI) / 360) * camHome.z * camera.aspect
   const reach = Math.max(...rings.map((g) => Math.abs(g.userData.x) + g.userData.r + MOD))
-  fit = Math.min(1, (halfW * 0.92) / reach)
+  // portrait screens leave fog showing on both sides, so the train reads as a cloud above the tower, not a wall
+  fit = Math.min(1, (halfW * (camera.aspect < 0.8 ? 0.78 : 0.92)) / reach)
 }
 addEventListener('resize', resize); resize()
 
@@ -382,8 +384,10 @@ function frame(now) {
   // rings: a slow drift, plus tooth steps that land with an ease-out (the ticking you can almost hear)
   const top = towerTop()
   const cloudY = top + 2.4 - S.reach * (top * 0.45)
-  cloud.position.y += (cloudY - cloud.position.y) * Math.min(1, dt * 0.8)
   const squeeze = fit * (1 - S.reach * 0.45)
+  // first frame: the cloud is already in place (no fly-up from the ground while the page opens)
+  if (!cloudPlaced) { cloud.position.y = cloudY; cloud.scale.setScalar(squeeze); cloudPlaced = true }
+  cloud.position.y += (cloudY - cloud.position.y) * Math.min(1, dt * 0.8)
   cloud.scale.setScalar(cloud.scale.x + (squeeze - cloud.scale.x) * Math.min(1, dt * 0.8))
   rings.forEach((g) => {
     const u = g.userData
@@ -407,7 +411,7 @@ function frame(now) {
   iris.scale.set(1, ey, 1)
   pupil.scale.set(1, Math.min(1, ey * 1.4), 1)
   lid.visible = S.open < 0.15
-  glow.material.opacity = 0.03 + S.open * 0.1 + S.reach * 0.12 + (Math.sin(now / 1400) * 0.5 + 0.5) * 0.04
+  glow.material.opacity = 0.08 + S.open * 0.07 + S.reach * 0.12 + (Math.sin(now / 1400) * 0.5 + 0.5) * 0.04
   eye.getWorldPosition(eyeWorld)
   look.set(pointer.x * 0.17, pointer.y * 0.17 * ey, 0.002)
   pupil.position.lerp(look, Math.min(1, dt * 6))
