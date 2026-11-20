@@ -33,7 +33,7 @@ h1{font-weight:400;font-size:30px;letter-spacing:-.01em;margin:0 0 12px;line-hei
 .caption{margin:0;font-size:13px;line-height:1.62;color:var(--dim);text-wrap:pretty}
 .status{position:fixed;left:max(32px,env(safe-area-inset-left));bottom:max(28px,env(safe-area-inset-bottom));z-index:2;margin:0;font-size:13px;letter-spacing:.02em;color:var(--dim);transition:opacity .4s var(--ease-out)}
 footer{position:fixed;right:max(32px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2;font-size:13px;letter-spacing:.02em}
-footer a{display:inline-block;padding:12px 0;line-height:20px;color:var(--dim);text-decoration:underline;text-underline-offset:3px;transition:color .2s ease}
+footer a{display:inline-block;margin-left:24px;padding:12px 0;line-height:20px;color:var(--dim);text-decoration:underline;text-underline-offset:3px;transition:color .2s ease}
 footer a:hover{color:var(--fg)}
 footer a:focus-visible{outline:1px solid var(--fg);outline-offset:3px}
 .fallback{position:fixed;inset:auto 32px 72px 32px;font-size:13px;color:var(--dim);max-width:440px}
@@ -49,7 +49,7 @@ footer a:focus-visible{outline:1px solid var(--fg);outline-offset:3px}
   <p class="caption">A tower in the fog with one eye. <span class="fine">Move and it wakes.</span><span class="touch">Touch and it wakes.</span> Hold still and it reaches for you. <span class="fine">Type</span><span class="touch">Tap</span> and it ticks, one tooth at a time.</p>
 </header>
 <p class="status" id="status" aria-live="polite">asleep</p>
-<footer><a href="https://joezgao.github.io/">Joe Gao</a></footer>
+<footer><a href="https://github.com/joezgao/machina">Source</a><a href="https://joezgao.github.io/">Joe Gao</a></footer>
 <noscript><p class="fallback">This piece needs JavaScript and WebGL.</p></noscript>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
