@@ -37,13 +37,16 @@ footer a{display:inline-block;padding:12px 0;line-height:20px;color:var(--dim);t
 footer a:hover{color:var(--fg)}
 footer a:focus-visible{outline:1px solid var(--fg);outline-offset:3px}
 .fallback{position:fixed;inset:auto 32px 72px 32px;font-size:13px;color:var(--dim);max-width:440px}
+/* phones have no keyboard: the caption names touch instead */
+.touch{display:none}
+@media (pointer:coarse){.fine{display:none}.touch{display:inline}}
 @media (max-width:520px){h1{font-size:26px}header{top:22px}}
 </style>
 </head>
 <body>
 <header>
   <h1>Machina</h1>
-  <p class="caption">A tower in the fog with one eye. Move and it wakes. Hold still and it reaches for you. Type and it ticks, one tooth at a time.</p>
+  <p class="caption">A tower in the fog with one eye. <span class="fine">Move and it wakes.</span><span class="touch">Touch and it wakes.</span> Hold still and it reaches for you. <span class="fine">Type</span><span class="touch">Tap</span> and it ticks, one tooth at a time.</p>
 </header>
 <p class="status" id="status" aria-live="polite">asleep</p>
 <footer><a href="https://joezgao.github.io/">Joe Gao</a></footer>
@@ -157,6 +160,7 @@ let seamLit = 0
 
 // the mechanical cloud: a train of filled gears that really mesh, circuit traces hub to hub, and a haze of points
 const cloud = new THREE.Group()
+let fit = 1 // set in resize(): < 1 when the screen is too narrow for the whole train
 scene.add(cloud)
 const MOD = 0.22 // gear module: pitch radius = MOD * teeth / 2
 // each gear hangs off a parent at an angle and meshes with it
@@ -314,6 +318,10 @@ function resize() {
   halo.position.x = moon.position.x
   camera.fov = w / h < 0.8 ? 58 : 40
   camera.updateProjectionMatrix()
+  // on a narrow screen, shrink the gear train until its widest tooth clears both edges
+  const halfW = Math.tan((camera.fov * Math.PI) / 360) * camHome.z * camera.aspect
+  const reach = Math.max(...rings.map((g) => Math.abs(g.userData.x) + g.userData.r + MOD))
+  fit = Math.min(1, (halfW * 0.92) / reach)
 }
 addEventListener('resize', resize); resize()
 
@@ -375,7 +383,7 @@ function frame(now) {
   const top = towerTop()
   const cloudY = top + 2.4 - S.reach * (top * 0.45)
   cloud.position.y += (cloudY - cloud.position.y) * Math.min(1, dt * 0.8)
-  const squeeze = 1 - S.reach * 0.45
+  const squeeze = fit * (1 - S.reach * 0.45)
   cloud.scale.setScalar(cloud.scale.x + (squeeze - cloud.scale.x) * Math.min(1, dt * 0.8))
   rings.forEach((g) => {
     const u = g.userData
