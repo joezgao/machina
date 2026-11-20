@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Machina</title>
+<meta name="description" content="A tower in the fog with one red eye. It wakes when you move, reaches for you when you go still, and ticks when you type.">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 fill=%22%23000%22/%3E%3Crect x=%226%22 y=%222%22 width=%224%22 height=%2214%22 fill=%22%23222%22/%3E%3Ccircle cx=%228%22 cy=%226%22 r=%221.6%22 fill=%22%23E5372B%22/%3E%3C/svg%3E">
+<link rel="canonical" href="https://joezgao.github.io/machina/machina.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://joezgao.github.io/machina/machina.html">
+<meta property="og:title" content="Machina">
+<meta property="og:description" content="A tower in the fog with one red eye. It wakes when you move, reaches for you when you go still, and ticks when you type.">
+<meta property="og:image" content="https://joezgao.github.io/machina/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A black tower in stippled fog under a white moon, a ring of gears above it and one red eye on its face.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap"></noscript>
+<style>
+:root{--bg:#000;--fg:#EDEDED;--dim:#8A8A8A;--faint:#5c5c5c;--eye:#E5372B;--sans:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;--ease-out:cubic-bezier(0.23,1,0.32,1);color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--bg:#fff;--fg:#111;--dim:#555;--faint:#8a8a8a;color-scheme:light}}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);overflow:clip}
+body{font-family:var(--sans);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+::selection{background:#3a3a3a;color:#fff}
+canvas{position:fixed;inset:0;width:100%;height:100dvh;display:block;touch-action:none;outline:none}
+header{position:fixed;top:28px;left:max(32px,env(safe-area-inset-left));z-index:2;pointer-events:none;max-width:min(440px,calc(100% - 64px))}
+h1{font-weight:400;font-size:30px;letter-spacing:-.01em;margin:0 0 12px;line-height:1.1}
+.caption{margin:0;font-size:13px;line-height:1.62;color:var(--dim);text-wrap:pretty}
+.status{position:fixed;left:max(32px,env(safe-area-inset-left));bottom:max(28px,env(safe-area-inset-bottom));z-index:2;margin:0;font-size:11px;letter-spacing:.04em;color:var(--faint);transition:opacity .4s var(--ease-out)}
+footer{position:fixed;right:max(32px,env(safe-area-inset-right));bottom:max(28px,env(safe-area-inset-bottom));z-index:2;font-size:11px;letter-spacing:.04em}
+footer a{color:var(--faint);text-decoration:underline;text-underline-offset:3px;transition:color .2s ease}
+footer a:hover{color:var(--fg)}
+footer a:focus-visible{outline:1px solid var(--fg);outline-offset:3px}
+.fallback{position:fixed;inset:auto 32px 72px 32px;font-size:13px;color:var(--dim);max-width:440px}
+@media (max-width:520px){h1{font-size:26px}header{top:22px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Machina</h1>
+  <p class="caption">A tower in the fog with one eye. Move and it wakes. Hold still and it reaches for you. Type and it ticks, one tooth at a time.</p>
+</header>
+<p class="status" id="status" aria-live="polite">asleep</p>
+<footer><a href="https://joezgao.github.io/">Joe Gao</a></footer>
+<noscript><p class="fallback">This piece needs JavaScript and WebGL.</p></noscript>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three'
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+const light = matchMedia('(prefers-color-scheme: light)')
+const statusEl = document.getElementById('status')
+
+let renderer
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' })
+} catch (err) {
+  const p = document.createElement('p'); p.className = 'fallback'
+  p.textContent = 'This browser could not start WebGL, so the tower stays hidden.'
+  document.body.append(p); throw err
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.setClearColor(0x000000, 1)
+renderer.domElement.setAttribute('aria-label', 'A black tower in fog under the moon, crowned by a slowly turning ring of gears, with one red eye that opens when you move.')
+renderer.domElement.setAttribute('role', 'img')
+document.body.prepend(renderer.domElement)
+
+// ---------- scene ----------
+const FOG = new THREE.Color(0.075, 0.075, 0.075)
+const scene = new THREE.Scene()
+scene.fog = new THREE.FogExp2(FOG, 0.028)
+scene.background = new THREE.Color(0.012, 0.012, 0.012)
+
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200)
+const camHome = new THREE.Vector3(0, 4.5, 27)
+camera.position.copy(camHome)
+
+const moonLight = new THREE.DirectionalLight(0xffffff, 2.4)
+moonLight.position.set(-14, 22, -30)
+scene.add(moonLight, new THREE.AmbientLight(0xffffff, 0.18))
+
+// moon: the one white disc
+const moon = new THREE.Mesh(new THREE.CircleGeometry(3.2, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }))
+moon.position.set(-30, 34, -85)
+scene.add(moon)
+const halo = new THREE.Mesh(new THREE.CircleGeometry(9, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05, fog: false, depthWrite: false }))
+halo.position.copy(moon.position).add(new THREE.Vector3(0, 0, -0.5))
+scene.add(halo)
+
+// sky: the fog glows near the horizon so the tower stands black against it
+const skyGeo = new THREE.PlaneGeometry(600, 120, 1, 24)
+const skyCol = []
+for (let i = 0; i < skyGeo.attributes.position.count; i++) {
+  const y = skyGeo.attributes.position.getY(i) / 60 * 0.5 + 0.5
+  const v = 0.16 * Math.pow(1 - y, 9)
+  skyCol.push(v, v, v)
+}
+skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(skyCol, 3))
+const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, depthWrite: false }))
+sky.position.set(0, 60, -90)
+scene.add(sky)
+
+// ground
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 1 }))
+ground.rotation.x = -Math.PI / 2
+scene.add(ground)
+
+// tower: a stack of monolith segments; it grows one segment each long stretch of attention
+const towerMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.35, metalness: 0.6, fog: false })
+const tower = new THREE.Group()
+scene.add(tower)
+const SEG_H = 3.1, SEG_GAP = 0.14
+const segs = []
+function addSegment(i) {
+  const w = 1.5 - i * 0.12
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, SEG_H, w * 0.7), towerMat)
+  m.position.y = SEG_H / 2 + i * (SEG_H + SEG_GAP)
+  m.userData.grow = i < 3 ? 1 : 0
+  m.scale.y = m.userData.grow || 0.001
+  tower.add(m); segs.push(m)
+}
+for (let i = 0; i < 3; i++) addSegment(i)
+const towerTop = () => segs.reduce((h, s) => Math.max(h, s.position.y - SEG_H / 2 + SEG_H * s.scale.y), 0)
+
+// eye: pure red, kept out of the fog so the dither pass can find it
+const eye = new THREE.Group()
+const EYE_Y = 7.1
+eye.position.set(0, EYE_Y, 0.56)
+const red = new THREE.MeshBasicMaterial({ color: 0xff0000, fog: false })
+const iris = new THREE.Mesh(new THREE.CircleGeometry(0.34, 48), red)
+const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.11, 32), new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }))
+pupil.position.z = 0.002
+const lid = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.025), new THREE.MeshBasicMaterial({ color: 0x400000, fog: false }))
+const glow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 48), new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }))
+glow.position.z = -0.001
+eye.add(glow, iris, pupil, lid)
+scene.add(eye)
+
+// the mechanical cloud: rings of gear teeth, circuit traces between them, and a haze of points
+const cloud = new THREE.Group()
+scene.add(cloud)
+const RINGS = [
+  { r: 3.0, teeth: 24, y: 0.0, tilt: 0.0 },
+  { r: 4.6, teeth: 36, y: 0.6, tilt: 0.05 },
+  { r: 6.3, teeth: 48, y: -0.4, tilt: -0.04 },
+  { r: 8.1, teeth: 60, y: 0.9, tilt: 0.07 },
+  { r: 10.2, teeth: 72, y: -0.2, tilt: -0.06 },
+]
+const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, fog: false })
+const rings = RINGS.map((d, k) => {
+  const pts = []
+  const n = d.teeth * 4
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI * 2
+    const tooth = Math.floor(i / 2) % 2 ? 0.22 : 0
+    pts.push(new THREE.Vector3(Math.cos(a) * (d.r + tooth), 0, Math.sin(a) * (d.r + tooth)))
+  }
+  const g = new THREE.Group()
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
+  // spokes every few teeth: hand-drawn feeling, not a wheel
+  const spokes = []
+  for (let i = 0; i < d.teeth; i += 6) {
+    const a = (i / d.teeth) * Math.PI * 2
+    spokes.push(new THREE.Vector3(Math.cos(a) * (d.r - 0.5), 0, Math.sin(a) * (d.r - 0.5)), new THREE.Vector3(Math.cos(a) * d.r, 0, Math.sin(a) * d.r))
+  }
+  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(spokes), lineMat))
+  g.userData = { ...d, dir: k % 2 ? -1 : 1, step: (Math.PI * 2) / d.teeth, angle: Math.random() * 6, target: 0, drift: (0.02 + 0.01 * k) * (k % 2 ? -1 : 1) }
+  g.userData.target = g.userData.angle
+  g.rotation.set(d.tilt, g.userData.angle, d.tilt * 0.6)
+  cloud.add(g)
+  return g
+})
+
+// circuit traces: right-angle paths from the tower out through the rings; each lights in turn when you type
+const traces = []
+const rand = mulberry(7)
+for (let t = 0; t < 14; t++) {
+  const pts = []
+  let a = (t / 14) * Math.PI * 2 + rand() * 0.2
+  let r = 1.0, y = 0
+  pts.push(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r))
+  while (r < 10.5) {
+    if (rand() < 0.55) r += 0.8 + rand() * 1.6
+    else a += (rand() < 0.5 ? -1 : 1) * (0.08 + rand() * 0.15)
+    y += (rand() - 0.5) * 0.3
+    pts.push(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r))
+  }
+  const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, fog: false })
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat)
+  line.userData.lit = 0
+  cloud.add(line); traces.push(line)
+}
+
+// haze
+const HN = 1400
+const hp = new Float32Array(HN * 3)
+for (let i = 0; i < HN; i++) {
+  const a = rand() * Math.PI * 2, r = 2 + Math.pow(rand(), 0.7) * 11
+  hp[i * 3] = Math.cos(a) * r; hp[i * 3 + 1] = (rand() - 0.5) * (1.2 + r * 0.15); hp[i * 3 + 2] = Math.sin(a) * r
+}
+const hazeGeo = new THREE.BufferGeometry(); hazeGeo.setAttribute('position', new THREE.BufferAttribute(hp, 3))
+const haze = new THREE.Points(hazeGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.07, transparent: true, opacity: 0.45 }))
+cloud.add(haze)
+
+// ---------- 1-bit ordered dither, with the red eye kept as the only colour ----------
+const rt = new THREE.WebGLRenderTarget(1, 1, { samples: 0 })
+const post = new THREE.ShaderMaterial({
+  uniforms: {
+    tScene: { value: rt.texture }, res: { value: new THREE.Vector2(1, 1) }, cell: { value: 2 },
+    ink: { value: new THREE.Color(0xededed) }, paper: { value: new THREE.Color(0x000000) },
+    accent: { value: new THREE.Color(0xe5372b) }, gain: { value: 1.0 },
+  },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: `
+    uniform sampler2D tScene; uniform vec2 res; uniform float cell, gain;
+    uniform vec3 ink, paper, accent;
+    float bayer4(vec2 p){
+      int x = int(mod(p.x, 4.)), y = int(mod(p.y, 4.));
+      int i = x + y * 4;
+      float m[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
+      for (int k = 0; k < 16; k++) if (k == i) return (m[k] + .5) / 16.;
+      return .5;
+    }
+    void main(){
+      vec2 c = floor(gl_FragCoord.xy / cell);
+      vec3 col = texture2D(tScene, (c + .5) * cell / res).rgb;
+      float redness = col.r - max(col.g, col.b);
+      float l = pow(dot(col, vec3(.299, .587, .114)) * gain, .9);
+      float t = bayer4(c);
+      vec3 o = mix(paper, ink, step(t, l));
+      if (redness > .04) o = mix(o, accent, step(t, redness * 1.6));
+      gl_FragColor = vec4(o, 1.);
+    }`,
+  depthTest: false, depthWrite: false,
+})
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post)
+const postScene = new THREE.Scene(); postScene.add(quad)
+const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
+function setTheme() {
+  const isLight = light.matches
+  post.uniforms.ink.value.set(isLight ? 0x111111 : 0xededed)
+  post.uniforms.paper.value.set(isLight ? 0xffffff : 0x000000)
+}
+setTheme(); light.addEventListener('change', setTheme)
+
+function resize() {
+  const w = innerWidth, h = innerHeight
+  renderer.setSize(w, h, false)
+  const pr = renderer.getPixelRatio()
+  rt.setSize(Math.round(w * pr), Math.round(h * pr))
+  post.uniforms.res.value.set(w * pr, h * pr)
+  post.uniforms.cell.value = Math.max(2, Math.round(2 * pr))
+  camera.aspect = w / h
+  moon.position.x = w / h < 0.8 ? -9 : -30
+  halo.position.x = moon.position.x
+  camera.fov = w / h < 0.8 ? 58 : 40
+  camera.updateProjectionMatrix()
+}
+addEventListener('resize', resize); resize()
+
+// ---------- presence ----------
+const pointer = new THREE.Vector2(0, 0)
+const S = { attention: 0, open: 0, lastInput: -1e9, watched: 0, reach: 0, present: true, ticks: 0, nextTrace: 0, grown: 3 }
+function input(now) { S.lastInput = now; S.present = true }
+addEventListener('pointermove', e => {
+  const nx = (e.clientX / innerWidth) * 2 - 1, ny = -(e.clientY / innerHeight) * 2 + 1
+  const d = Math.hypot(nx - pointer.x, ny - pointer.y)
+  pointer.set(nx, ny)
+  S.attention = Math.min(1, S.attention + d * 0.6)
+  input(performance.now())
+})
+addEventListener('pointerdown', e => { tick(); input(performance.now()) })
+addEventListener('keydown', e => { if (e.metaKey || e.ctrlKey || e.key === 'Tab') return; tick(); input(performance.now()) })
+document.addEventListener('pointerleave', () => { S.present = false })
+addEventListener('blur', () => { S.present = false })
+document.addEventListener('visibilitychange', () => { if (document.hidden) S.present = false })
+
+// a key is one tooth: every ring steps once in its own direction, and one trace lights from the tower out
+function tick() {
+  S.ticks++
+  S.attention = Math.min(1, S.attention + 0.25)
+  for (const g of rings) g.userData.target += g.userData.step * g.userData.dir
+  const tr = traces[S.nextTrace++ % traces.length]
+  tr.userData.lit = 1
+}
+
+const eyeWorld = new THREE.Vector3()
+const look = new THREE.Vector3()
+let last = performance.now()
+let state = ''
+function setStatus(s, html) { if (s !== state) { state = s; statusEl.innerHTML = html } }
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now
+  const idle = (now - S.lastInput) / 1000
+  const speed = reduce ? 0.25 : 1
+
+  // attention decays slowly while you are here, quickly once you leave
+  S.attention = Math.max(0, S.attention - dt * (S.present ? 0.035 : 0.25))
+  const wantOpen = S.present ? smooth(0.05, 0.45, S.attention) : 0
+  S.open += (wantOpen - S.open) * Math.min(1, dt * (wantOpen > S.open ? 2.2 : 0.8))
+  if (S.open > 0.5) S.watched += dt
+
+  // stillness after it has seen you: it reaches, the cloud comes down and closes around the tower
+  const wantReach = S.present && S.open > 0.3 && idle > 4 ? smooth(4, 12, idle) : 0
+  S.reach += (wantReach - S.reach) * Math.min(1, dt * (wantReach > S.reach ? 0.35 : 1.6))
+  if (wantReach > 0) S.attention = Math.max(S.attention, 0.5)
+
+  // a long gaze raises the tower one segment at a time, up to six
+  const shouldHave = Math.min(6, 3 + Math.floor(S.watched / 40))
+  while (S.grown < shouldHave) { addSegment(S.grown); S.grown++ }
+  for (const s of segs) if (s.scale.y < 1) s.scale.y = Math.min(1, s.scale.y + dt * 0.12 * speed)
+
+  // rings: a slow drift, plus tooth steps that land with an ease-out (the ticking you can almost hear)
+  const top = towerTop()
+  const cloudY = top + 2.4 - S.reach * (top * 0.45)
+  cloud.position.y += (cloudY - cloud.position.y) * Math.min(1, dt * 0.8)
+  const squeeze = 1 - S.reach * 0.45
+  cloud.scale.setScalar(cloud.scale.x + (squeeze - cloud.scale.x) * Math.min(1, dt * 0.8))
+  rings.forEach((g, k) => {
+    const u = g.userData
+    u.target += u.drift * dt * speed * (1 - S.reach * 0.9)
+    u.angle += (u.target - u.angle) * Math.min(1, dt * 14)
+    const flatten = 1 - S.reach
+    g.rotation.set(u.tilt * flatten, u.angle, u.tilt * 0.6 * flatten)
+    g.position.y = u.y * flatten
+  })
+  for (const tr of traces) {
+    tr.userData.lit = Math.max(0, tr.userData.lit - dt * 0.6)
+    tr.material.opacity = 0.18 + tr.userData.lit * 0.82 + S.reach * 0.25
+  }
+  haze.rotation.y += dt * 0.01 * speed
+
+  // eye: opens, finds you, and tracks
+  const ey = Math.max(0.03, S.open)
+  iris.scale.set(1, ey, 1)
+  pupil.scale.set(1, Math.min(1, ey * 1.4), 1)
+  lid.visible = S.open < 0.15
+  glow.material.opacity = 0.03 + S.open * 0.1 + S.reach * 0.12 + (Math.sin(now / 1400) * 0.5 + 0.5) * 0.04
+  eye.getWorldPosition(eyeWorld)
+  look.set(pointer.x * 0.17, pointer.y * 0.17 * ey, 0.002)
+  pupil.position.lerp(look, Math.min(1, dt * 6))
+
+  // the camera leans a little toward you, and in as it reaches
+  if (!reduce) {
+    camera.position.x += (camHome.x + pointer.x * 1.4 - camera.position.x) * dt * 1.5
+    camera.position.y += (camHome.y + pointer.y * 0.8 - camera.position.y) * dt * 1.5
+    camera.position.z += (camHome.z - S.reach * 4 - camera.position.z) * dt * 0.6
+  }
+  camera.lookAt(0, 7.5 + Math.max(0, top - 9.3) * 0.5 - S.reach * 1.2, 0)
+
+  if (S.grown > 3 && S.reach < 0.2 && S.open > 0.5) setStatus("rise", "it has grown taller")
+  else if (S.reach > 0.3) setStatus('reach', 'it is reaching for you')
+  else if (S.ticks && now - S.lastInput < 1500 && idle < 1.5 && S.open > 0.3) setStatus('listen', 'it is listening')
+  else if (S.open > 0.5) setStatus('see', 'it sees you')
+  else if (S.open > 0.08) setStatus('stir', 'it stirs')
+  else setStatus('sleep', 'asleep')
+
+  renderer.setRenderTarget(rt); renderer.render(scene, camera)
+  renderer.setRenderTarget(null); renderer.render(postScene, postCam)
+  requestAnimationFrame(frame)
+}
+requestAnimationFrame(frame)
+
+function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
+function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }
+
+// for tests and the screenshot script
+window.__machina = { S, tick, rings, segs }
+</script>
+</body>
+</html>
