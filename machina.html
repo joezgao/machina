@@ -31,9 +31,9 @@ canvas{position:fixed;inset:0;width:100%;height:100dvh;display:block;touch-actio
 header{position:fixed;top:28px;left:max(32px,env(safe-area-inset-left));z-index:2;pointer-events:none;max-width:min(440px,calc(100% - 64px))}
 h1{font-weight:400;font-size:30px;letter-spacing:-.01em;margin:0 0 12px;line-height:1.1}
 .caption{margin:0;font-size:13px;line-height:1.62;color:var(--dim);text-wrap:pretty}
-.status{position:fixed;left:max(32px,env(safe-area-inset-left));bottom:max(28px,env(safe-area-inset-bottom));z-index:2;margin:0;font-size:11px;letter-spacing:.04em;color:var(--faint);transition:opacity .4s var(--ease-out)}
-footer{position:fixed;right:max(32px,env(safe-area-inset-right));bottom:max(28px,env(safe-area-inset-bottom));z-index:2;font-size:11px;letter-spacing:.04em}
-footer a{color:var(--faint);text-decoration:underline;text-underline-offset:3px;transition:color .2s ease}
+.status{position:fixed;left:max(32px,env(safe-area-inset-left));bottom:max(28px,env(safe-area-inset-bottom));z-index:2;margin:0;font-size:13px;letter-spacing:.02em;color:var(--dim);transition:opacity .4s var(--ease-out)}
+footer{position:fixed;right:max(32px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2;font-size:13px;letter-spacing:.02em}
+footer a{display:inline-block;padding:12px 0;line-height:20px;color:var(--dim);text-decoration:underline;text-underline-offset:3px;transition:color .2s ease}
 footer a:hover{color:var(--fg)}
 footer a:focus-visible{outline:1px solid var(--fg);outline-offset:3px}
 .fallback{position:fixed;inset:auto 32px 72px 32px;font-size:13px;color:var(--dim);max-width:440px}
@@ -72,9 +72,9 @@ renderer.domElement.setAttribute('role', 'img')
 document.body.prepend(renderer.domElement)
 
 // ---------- scene ----------
-const FOG = new THREE.Color(0.075, 0.075, 0.075)
+const FOG = new THREE.Color(0.006, 0.006, 0.006)  // linear; shows as ~0.07 after sRGB
 const scene = new THREE.Scene()
-scene.fog = new THREE.FogExp2(FOG, 0.028)
+scene.fog = new THREE.FogExp2(FOG, 0.045)
 scene.background = new THREE.Color(0.012, 0.012, 0.012)
 
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200)
@@ -83,10 +83,12 @@ camera.position.copy(camHome)
 
 const moonLight = new THREE.DirectionalLight(0xffffff, 2.4)
 moonLight.position.set(-14, 22, -30)
-scene.add(moonLight, new THREE.AmbientLight(0xffffff, 0.18))
+const rim = new THREE.DirectionalLight(0xffffff, 3.2)
+rim.position.set(-30, 30, 10)
+scene.add(moonLight, rim, new THREE.AmbientLight(0xffffff, 0.18))
 
 // moon: the one white disc
-const moon = new THREE.Mesh(new THREE.CircleGeometry(3.2, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }))
+const moon = new THREE.Mesh(new THREE.CircleGeometry(2.0, 64), new THREE.MeshBasicMaterial({ color: 0xa0a0a0, fog: false }))
 moon.position.set(-30, 34, -85)
 scene.add(moon)
 const halo = new THREE.Mesh(new THREE.CircleGeometry(9, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05, fog: false, depthWrite: false }))
@@ -106,13 +108,13 @@ const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: t
 sky.position.set(0, 60, -90)
 scene.add(sky)
 
-// ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 1 }))
+// ground: unlit, so only the fog lights it; the horizon glows and the foreground stays black
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ color: 0x000000 }))
 ground.rotation.x = -Math.PI / 2
 scene.add(ground)
 
 // tower: a stack of monolith segments; it grows one segment each long stretch of attention
-const towerMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.35, metalness: 0.6, fog: false })
+const towerMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.7, metalness: 0.6, fog: false })
 const tower = new THREE.Group()
 scene.add(tower)
 const SEG_H = 3.1, SEG_GAP = 0.14
@@ -141,16 +143,20 @@ const glow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 48), new THREE.MeshBa
 glow.position.z = -0.001
 eye.add(glow, iris, pupil, lid)
 scene.add(eye)
+const seam = new THREE.Mesh(new THREE.PlaneGeometry(0.12, EYE_Y - 0.45), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, fog: false, depthWrite: false }))
+seam.position.set(0, (EYE_Y - 0.45) / 2, 0.57)
+scene.add(seam)
+let seamLit = 0
 
 // the mechanical cloud: rings of gear teeth, circuit traces between them, and a haze of points
 const cloud = new THREE.Group()
 scene.add(cloud)
 const RINGS = [
-  { r: 3.0, teeth: 24, y: 0.0, tilt: 0.0 },
-  { r: 4.6, teeth: 36, y: 0.6, tilt: 0.05 },
-  { r: 6.3, teeth: 48, y: -0.4, tilt: -0.04 },
-  { r: 8.1, teeth: 60, y: 0.9, tilt: 0.07 },
-  { r: 10.2, teeth: 72, y: -0.2, tilt: -0.06 },
+  { r: 3.0, teeth: 12, y: 0.0, tilt: 0.0 },
+  { r: 4.6, teeth: 16, y: 0.6, tilt: 0.05 },
+  { r: 6.3, teeth: 20, y: -0.4, tilt: -0.04 },
+  { r: 8.1, teeth: 24, y: 0.9, tilt: 0.07 },
+  { r: 10.2, teeth: 24, y: -0.2, tilt: -0.06 },
 ]
 const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, fog: false })
 const rings = RINGS.map((d, k) => {
@@ -158,14 +164,14 @@ const rings = RINGS.map((d, k) => {
   const n = d.teeth * 4
   for (let i = 0; i <= n; i++) {
     const a = (i / n) * Math.PI * 2
-    const tooth = Math.floor(i / 2) % 2 ? 0.22 : 0
+    const tooth = Math.floor(i / 2) % 2 ? 0.6 : 0
     pts.push(new THREE.Vector3(Math.cos(a) * (d.r + tooth), 0, Math.sin(a) * (d.r + tooth)))
   }
   const g = new THREE.Group()
   g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
   // spokes every few teeth: hand-drawn feeling, not a wheel
   const spokes = []
-  for (let i = 0; i < d.teeth; i += 6) {
+  for (let i = 0; i < d.teeth; i += 3) {
     const a = (i / d.teeth) * Math.PI * 2
     spokes.push(new THREE.Vector3(Math.cos(a) * (d.r - 0.5), 0, Math.sin(a) * (d.r - 0.5)), new THREE.Vector3(Math.cos(a) * d.r, 0, Math.sin(a) * d.r))
   }
@@ -215,11 +221,13 @@ const post = new THREE.ShaderMaterial({
     tScene: { value: rt.texture }, res: { value: new THREE.Vector2(1, 1) }, cell: { value: 2 },
     ink: { value: new THREE.Color(0xededed) }, paper: { value: new THREE.Color(0x000000) },
     accent: { value: new THREE.Color(0xe5372b) }, gain: { value: 1.0 },
+    quiet: { value: new THREE.Vector4(0, 0, 0, 0) }, bottomQuiet: { value: 0 }, feather: { value: 24 },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
   fragmentShader: `
     uniform sampler2D tScene; uniform vec2 res; uniform float cell, gain;
     uniform vec3 ink, paper, accent;
+    uniform vec4 quiet; uniform float bottomQuiet, feather;
     float bayer4(vec2 p){
       int x = int(mod(p.x, 4.)), y = int(mod(p.y, 4.));
       int i = x + y * 4;
@@ -233,6 +241,9 @@ const post = new THREE.ShaderMaterial({
       float redness = col.r - max(col.g, col.b);
       float l = pow(dot(col, vec3(.299, .587, .114)) * gain, .9);
       float t = bayer4(c);
+      vec2 q = gl_FragCoord.xy;
+      vec2 dq = max(max(quiet.xy - q, q - quiet.zw), 0.);
+      l *= smoothstep(0., feather, length(dq)) * smoothstep(bottomQuiet, bottomQuiet + feather, q.y);
       vec3 o = mix(paper, ink, step(t, l));
       if (redness > .04) o = mix(o, accent, step(t, redness * 1.6));
       gl_FragColor = vec4(o, 1.);
@@ -256,6 +267,11 @@ function resize() {
   rt.setSize(Math.round(w * pr), Math.round(h * pr))
   post.uniforms.res.value.set(w * pr, h * pr)
   post.uniforms.cell.value = Math.max(2, Math.round(2 * pr))
+  // keep the dither off the words: the header box plus a feather, and a band along the bottom (gl y runs upward)
+  const hb = document.querySelector('header').getBoundingClientRect()
+  post.uniforms.quiet.value.set((hb.left - 16) * pr, (h - hb.bottom - 16) * pr, (hb.right + 16) * pr, (h - hb.top + 16) * pr)
+  post.uniforms.bottomQuiet.value = 56 * pr
+  post.uniforms.feather.value = 24 * pr
   camera.aspect = w / h
   moon.position.x = w / h < 0.8 ? -9 : -30
   halo.position.x = moon.position.x
@@ -286,6 +302,7 @@ function tick() {
   S.ticks++
   S.attention = Math.min(1, S.attention + 0.25)
   for (const g of rings) g.userData.target += g.userData.step * g.userData.dir
+  seamLit = 1
   const tr = traces[S.nextTrace++ % traces.length]
   tr.userData.lit = 1
 }
@@ -325,10 +342,11 @@ function frame(now) {
   cloud.scale.setScalar(cloud.scale.x + (squeeze - cloud.scale.x) * Math.min(1, dt * 0.8))
   rings.forEach((g, k) => {
     const u = g.userData
-    u.target += u.drift * dt * speed * (1 - S.reach * 0.9)
+    u.target += u.drift * dt * speed * (1 - S.reach * 0.9) * (1 - S.open * 0.85)
     u.angle += (u.target - u.angle) * Math.min(1, dt * 14)
     const flatten = 1 - S.reach
-    g.rotation.set(u.tilt * flatten, u.angle, u.tilt * 0.6 * flatten)
+    const lean = S.open * flatten * 0.22
+    g.rotation.set(u.tilt * flatten - pointer.y * lean, u.angle, u.tilt * 0.6 * flatten - pointer.x * lean)
     g.position.y = u.y * flatten
   })
   for (const tr of traces) {
@@ -336,6 +354,8 @@ function frame(now) {
     tr.material.opacity = 0.18 + tr.userData.lit * 0.82 + S.reach * 0.25
   }
   haze.rotation.y += dt * 0.01 * speed
+  seamLit = Math.max(0, seamLit - dt / 0.6)
+  seam.material.opacity = seamLit
 
   // eye: opens, finds you, and tracks
   const ey = Math.max(0.03, S.open)
