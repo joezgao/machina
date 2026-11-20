@@ -15,7 +15,7 @@
 <meta property="og:image" content="https://joezgao.github.io/machina/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A black tower in stippled fog under a white moon, a ring of gears above it and one red eye on its face.">
+<meta property="og:image:alt" content="A black tower in stippled fog under a white moon, a cloud of meshing gears above it and one red eye on its face.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,7 +67,7 @@ try {
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
 renderer.setClearColor(0x000000, 1)
-renderer.domElement.setAttribute('aria-label', 'A black tower in fog under the moon, crowned by a slowly turning ring of gears, with one red eye that opens when you move.')
+renderer.domElement.setAttribute('aria-label', 'A black tower in fog under the moon, crowned by a cloud of meshing gears, with one red eye that opens when you move.')
 renderer.domElement.setAttribute('role', 'img')
 document.body.prepend(renderer.domElement)
 
@@ -148,60 +148,90 @@ seam.position.set(0, (EYE_Y - 0.45) / 2, 0.57)
 scene.add(seam)
 let seamLit = 0
 
-// the mechanical cloud: rings of gear teeth, circuit traces between them, and a haze of points
+// the mechanical cloud: a train of filled gears that really mesh, circuit traces hub to hub, and a haze of points
 const cloud = new THREE.Group()
 scene.add(cloud)
-const RINGS = [
-  { r: 3.0, teeth: 12, y: 0.0, tilt: 0.0 },
-  { r: 4.6, teeth: 16, y: 0.6, tilt: 0.05 },
-  { r: 6.3, teeth: 20, y: -0.4, tilt: -0.04 },
-  { r: 8.1, teeth: 24, y: 0.9, tilt: 0.07 },
-  { r: 10.2, teeth: 24, y: -0.2, tilt: -0.06 },
+const MOD = 0.22 // gear module: pitch radius = MOD * teeth / 2
+// each gear hangs off a parent at an angle and meshes with it
+const GEARS = [
+  { teeth: 24, x: 0, y: 0.4 },
+  { teeth: 16, parent: 0, at: 200 },
+  { teeth: 12, parent: 1, at: 205 },
+  { teeth: 20, parent: 0, at: -14 },
+  { teeth: 12, parent: 3, at: 62 },
+  { teeth: 14, parent: 3, at: -12 },
+  { teeth: 18, parent: 5, at: 40 },
 ]
-const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, fog: false })
-const rings = RINGS.map((d, k) => {
-  const pts = []
-  const n = d.teeth * 4
-  for (let i = 0; i <= n; i++) {
-    const a = (i / n) * Math.PI * 2
-    const tooth = Math.floor(i / 2) % 2 ? 0.6 : 0
-    pts.push(new THREE.Vector3(Math.cos(a) * (d.r + tooth), 0, Math.sin(a) * (d.r + tooth)))
+function gearShape(t) {
+  const r = MOD * t / 2, tip = r + MOD, root = r - 1.25 * MOD
+  const s = new THREE.Shape()
+  for (let i = 0; i < t; i++) {
+    const a0 = (i / t) * Math.PI * 2, w = (Math.PI * 2) / t
+    const p = [[root, -0.5], [root, -0.27], [tip, -0.15], [tip, 0.15], [root, 0.27]]
+    p.forEach(([rr, f], j) => {
+      const a = a0 + f * w
+      i === 0 && j === 0 ? s.moveTo(Math.cos(a) * rr, Math.sin(a) * rr) : s.lineTo(Math.cos(a) * rr, Math.sin(a) * rr)
+    })
   }
+  s.closePath()
+  // windows between spokes, and the axle hole
+  const rim = root - Math.max(0.28, r * 0.16), hub = Math.max(0.32, r * 0.3)
+  const n = t >= 24 ? 5 : t >= 16 ? 4 : 3
+  const hw = (r * 0.09) / ((rim + hub) / 2)
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + hw, b = ((k + 1) / n) * Math.PI * 2 - hw
+    const h = new THREE.Path()
+    h.absarc(0, 0, rim, a, b, false)
+    h.absarc(0, 0, hub, b, a, true)
+    h.closePath()
+    s.holes.push(h)
+  }
+  const axle = new THREE.Path(); axle.absarc(0, 0, hub * 0.35, 0, Math.PI * 2, true); s.holes.push(axle)
+  return s
+}
+const rings = []
+GEARS.forEach((d) => {
+  const r = MOD * d.teeth / 2
+  let x = d.x, y = d.y, dir = 1, angle = Math.random() * 6
+  if (d.parent !== undefined) {
+    const P = rings[d.parent].userData, th = (d.at * Math.PI) / 180, dist = P.r + r
+    x = P.x + Math.cos(th) * dist; y = P.y + Math.sin(th) * dist; dir = -P.dir
+    // phase so a tooth of the parent sits in a gap of this gear on the line between their centres
+    const pA = ((th - P.angle) * P.teeth) / (Math.PI * 2)
+    angle = th + Math.PI - (Math.PI * 2 * (0.5 - pA)) / d.teeth
+  }
+  const shade = d.far ? 0x3a3a3a : 0xbdbdbd
+  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(gearShape(d.teeth), 6), new THREE.MeshBasicMaterial({ color: shade, fog: false, side: THREE.DoubleSide }))
   const g = new THREE.Group()
-  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
-  // spokes every few teeth: hand-drawn feeling, not a wheel
-  const spokes = []
-  for (let i = 0; i < d.teeth; i += 3) {
-    const a = (i / d.teeth) * Math.PI * 2
-    spokes.push(new THREE.Vector3(Math.cos(a) * (d.r - 0.5), 0, Math.sin(a) * (d.r - 0.5)), new THREE.Vector3(Math.cos(a) * d.r, 0, Math.sin(a) * d.r))
-  }
-  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(spokes), lineMat))
-  g.userData = { ...d, dir: k % 2 ? -1 : 1, step: (Math.PI * 2) / d.teeth, angle: Math.random() * 6, target: 0, drift: (0.02 + 0.01 * k) * (k % 2 ? -1 : 1) }
-  g.userData.target = g.userData.angle
-  g.rotation.set(d.tilt, g.userData.angle, d.tilt * 0.6)
+  g.add(mesh)
+  g.position.set(x, y, d.z || 0)
+  g.userData = { r, x, y, teeth: d.teeth, dir, mesh, step: (Math.PI * 2) / d.teeth, angle, target: angle, drift: 0.05 * dir * (24 / d.teeth) * (d.far ? 0.4 : 1) }
+  mesh.rotation.z = angle
   cloud.add(g)
-  return g
+  rings.push(g)
 })
 
-// circuit traces: right-angle paths from the tower out through the rings; each lights in turn when you type
+// circuit traces: right-angle runs from the tower's crown up to each gear hub; one lights each time you type
 const traces = []
 const rand = mulberry(7)
-for (let t = 0; t < 14; t++) {
-  const pts = []
-  let a = (t / 14) * Math.PI * 2 + rand() * 0.2
-  let r = 1.0, y = 0
-  pts.push(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r))
-  while (r < 10.5) {
-    if (rand() < 0.55) r += 0.8 + rand() * 1.6
-    else a += (rand() < 0.5 ? -1 : 1) * (0.08 + rand() * 0.15)
-    y += (rand() - 0.5) * 0.3
-    pts.push(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r))
-  }
-  const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, fog: false })
-  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat)
-  line.userData.lit = 0
-  cloud.add(line); traces.push(line)
+const TW = 0.07
+function seg(a, b, mat) {
+  const len = Math.hypot(b.x - a.x, b.y - a.y)
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(b.x === a.x ? TW : len + TW, b.x === a.x ? len + TW : TW), mat)
+  m.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, 0.03)
+  return m
 }
+rings.filter((g) => g.position.z === 0).forEach((g, i) => {
+  const u = g.userData
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, fog: false, depthWrite: false })
+  const tr = new THREE.Group()
+  const sx = (i - 3) * 0.16, bendY = -2.2 + i * 0.28
+  const pts = [{ x: sx, y: -2.6 }, { x: sx, y: bendY }, { x: u.x, y: bendY }, { x: u.x, y: u.y }]
+  for (let k = 0; k < 3; k++) tr.add(seg(pts[k], pts[k + 1], mat))
+  tr.material = mat
+  tr.userData.lit = 0
+  cloud.add(tr); traces.push(tr)
+})
 
 // haze
 const HN = 1400
@@ -340,14 +370,14 @@ function frame(now) {
   cloud.position.y += (cloudY - cloud.position.y) * Math.min(1, dt * 0.8)
   const squeeze = 1 - S.reach * 0.45
   cloud.scale.setScalar(cloud.scale.x + (squeeze - cloud.scale.x) * Math.min(1, dt * 0.8))
-  rings.forEach((g, k) => {
+  rings.forEach((g) => {
     const u = g.userData
     u.target += u.drift * dt * speed * (1 - S.reach * 0.9) * (1 - S.open * 0.85)
     u.angle += (u.target - u.angle) * Math.min(1, dt * 14)
-    const flatten = 1 - S.reach
-    const lean = S.open * flatten * 0.22
-    g.rotation.set(u.tilt * flatten - pointer.y * lean, u.angle, u.tilt * 0.6 * flatten - pointer.x * lean)
-    g.position.y = u.y * flatten
+    u.mesh.rotation.z = u.angle
+    // watched, the train turns its faces toward you (reaching shrinks the whole cloud, so the teeth stay meshed)
+    const lean = S.open * (1 - S.reach) * 0.3
+    g.rotation.set(-pointer.y * lean, pointer.x * lean, 0)
   })
   for (const tr of traces) {
     tr.userData.lit = Math.max(0, tr.userData.lit - dt * 0.6)
