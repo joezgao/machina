@@ -85,7 +85,10 @@ const moonLight = new THREE.DirectionalLight(0xffffff, 2.4)
 moonLight.position.set(-14, 22, -30)
 const rim = new THREE.DirectionalLight(0xffffff, 3.2)
 rim.position.set(-30, 30, 10)
-scene.add(moonLight, rim, new THREE.AmbientLight(0xffffff, 0.18))
+// a cold key from the right so one face of the tower catches light
+const key = new THREE.DirectionalLight(0xffffff, 2.2)
+key.position.set(24, 10, 18)
+scene.add(moonLight, rim, key, new THREE.AmbientLight(0xffffff, 0.18))
 
 // moon: the one white disc
 const moon = new THREE.Mesh(new THREE.CircleGeometry(2.0, 64), new THREE.MeshBasicMaterial({ color: 0xa0a0a0, fog: false }))
@@ -96,11 +99,15 @@ halo.position.copy(moon.position).add(new THREE.Vector3(0, 0, -0.5))
 scene.add(halo)
 
 // sky: the fog glows near the horizon so the tower stands black against it
-const skyGeo = new THREE.PlaneGeometry(600, 120, 1, 24)
+const skyGeo = new THREE.PlaneGeometry(600, 120, 240, 24)
 const skyCol = []
 for (let i = 0; i < skyGeo.attributes.position.count; i++) {
-  const y = skyGeo.attributes.position.getY(i) / 60 * 0.5 + 0.5
-  const v = 0.16 * Math.pow(1 - y, 9)
+  // a ragged top edge: the glow's height wanders along x, so the dither threshold never draws a ruled line
+  const x = skyGeo.attributes.position.getX(i)
+  const rag = 0.035 * (Math.sin(x * 0.11) + 0.6 * Math.sin(x * 0.29 + 1.7) + 0.35 * Math.sin(x * 0.73 + 4.1))
+  const y = Math.min(1, Math.max(0, skyGeo.attributes.position.getY(i) / 60 * 0.5 + 0.5 + rag))
+  // a wide low glow so the tower stands black against it all the way up to its crown
+  const v = 0.16 * Math.pow(1 - y, 9) + 0.05 * Math.pow(1 - y, 3)
   skyCol.push(v, v, v)
 }
 skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(skyCol, 3))
